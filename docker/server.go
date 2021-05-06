@@ -18,12 +18,6 @@ type Specification struct {
 	SleepTime              int `envconfig:"SLEEP_TIME" default:"60"`
 }
 
-// PartialMe holds the first name of the currently logged-in user.
-// Visit https://api.ovh.com/console/#/me#GET for the full definition
-type PartialMe struct {
-	Id string `json:"id"`
-}
-
 // Instantiate an OVH client and get the firstname of the currently logged-in user.
 // Visit https://api.ovh.com/createToken/index.cgi?GET=/me to get your credentials.
 func main() {
@@ -43,14 +37,33 @@ func main() {
 		log.Debugf("SLEEP_TIME=%v", strconv.Itoa(s.SleepTime))
 	}
 
-	var me PartialMe
-
 	client, _ := ovh.NewClient(
 		s.OVHApplicationEndpoint,
 		s.OVHApplicationKey,
 		s.OVHApplicationSecret,
 		s.OVHConsumerKey,
 	)
-	client.Get(fmt.Sprintf("/domain/zone/%s/record", s.OVHDNSDomain), &me)
-	fmt.Printf("Welcome %s!\n", me.Firstname)
+	recordIds := []int{}
+	recordUrl := fmt.Sprintf("/domain/zone/%s/record", s.OVHDNSDomain)
+	log.Debugf("recordMainPath='%s'", recordUrl)
+	if err1 := client.Get(recordUrl, &recordIds); err1 != nil {
+		log.Fatalf("Error: %q\n", err1)
+	}
+	for _, recordId := range recordIds {
+		type OVHRecord struct {
+			Ttl       int    `json:"ttl"`
+			Id        int    `json:"id"`
+			SubDomain string `json:"subDomain"`
+			Zone      string `json:"zone"`
+			Target    string `json:"target"`
+			FieldType string `json:"fieldType"`
+		}
+		ovhRecord := OVHRecord{}
+		recordIdUrl := fmt.Sprintf("%s/%s", recordUrl, strconv.Itoa(recordId))
+		if err2 := client.Get(recordIdUrl, &ovhRecord); err2 != nil {
+			log.Fatalf("Error: %q\n", err2)
+		}
+		log.Debugf("ovhRecord.FieldType='%s'", ovhRecord.FieldType)
+		log.Debugf("ovhRecord.SubDomain='%s'", ovhRecord.SubDomain)
+	}
 }
