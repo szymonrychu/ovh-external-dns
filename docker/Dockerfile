@@ -1,4 +1,4 @@
-FROM golang:1.16.3 as build
+FROM golang:alpine as build
 
 # Set the Current Working Directory inside the container
 WORKDIR /app
@@ -19,8 +19,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /go/bin/m
 FROM scratch
 
 COPY --from=build /go/bin/main /go/bin/main
-COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Expose port 9000 to the outside world
 EXPOSE 8090
 
