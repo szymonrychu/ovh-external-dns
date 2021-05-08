@@ -18,7 +18,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /go/bin/m
 
 FROM scratch
 
-COPY --from=build /go/bin/main /go/bin/main 
+COPY --from=build /go/bin/main /go/bin/main
+COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Expose port 9000 to the outside world
 EXPOSE 8090
