@@ -8,8 +8,8 @@ on:
 env:
   GIT_SHA: ${{ github.sha }}
   GIT_REF: ${{ github.ref }}
-  CONTAINER_NAME: plant-manager
-  CHART_NAME: plant-manager
+  CONTAINER_NAME: ovh-dns-updater
+  CHART_NAME: ovh-dns-updater
   CHART_GIT_BRANCH: master
   CHART_REPOSITORY: szymonrychu/charts
   BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
