@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 	"io/ioutil"
@@ -98,6 +99,9 @@ func main() {
 	var kubeconfig string
 	if home := homedir.HomeDir(); home != "" {
 		kubeconfig = filepath.Join(home, ".kube", "config")
+	}
+	if _, err := os.Stat(kubeconfig); err != nil {
+		kubeconfig = ""
 	}
 
 	// use the current context in kubeconfig
