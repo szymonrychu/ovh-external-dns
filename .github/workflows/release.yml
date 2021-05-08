@@ -1,0 +1,96 @@
+name: release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+env:
+  GIT_SHA: ${{ github.sha }}
+  GIT_REF: ${{ github.ref }}
+  CONTAINER_NAME: plant-manager
+  CHART_NAME: plant-manager
+  CHART_GIT_BRANCH: master
+  CHART_REPOSITORY: szymonrychu/charts
+  BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+  BOT_EMAIL: "szymon.rychu@gmail.com"
+  BOT_USERNAME: "szymonrychu"
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+  CONTAINER_REGISTRY: szymonrychu
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+  
+    - name: Parse versions in commit and setup debs
+      run: |
+        export LATEST_REPO_TAG=$(git tag -l --sort=-v:refname "[0-9]*" | head -n1)
+
+        export SHORT_SHA=$(echo ${GIT_SHA:0:7})
+
+        echo "APP_VERSION=${LATEST_REPO_TAG}" >> $GITHUB_ENV
+        echo "CHART_VERSION=${LATEST_REPO_TAG}" >> $GITHUB_ENV
+        echo "CONTAINER_VERSION=${LATEST_REPO_TAG}" >> $GITHUB_ENV
+        echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_ENV
+        echo "LATEST_REPO_TAG=${LATEST_REPO_TAG}" >> $GITHUB_ENV
+
+        echo $SHORT_SHA
+        echo $LATEST_REPO_TAG
+
+        sudo wget https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64 -O /usr/bin/yq
+        sudo chmod +x /usr/bin/yq
+
+        curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+
+    - name: Update metadata files
+      run: |
+        set -e
+        cd chart
+        yq w -i ${CHART_NAME}/Chart.yaml version ${CHART_VERSION}
+        yq w -i ${CHART_NAME}/Chart.yaml appVersion ${CONTAINER_VERSION}
+
+    - name: Build, tag, and push panel image to Amazon ECR
+      run: |
+        set -e
+        
+        echo "${DOCKERHUB_PASSWORD}" | docker login -u ${DOCKERHUB_USERNAME} --password-stdin
+
+        docker pull ${CONTAINER_REGISTRY}/${CONTAINER_NAME}:${GIT_SHA:0:7}
+        docker tag ${CONTAINER_REGISTRY}/${CONTAINER_NAME}:${GIT_SHA:0:7} ${CONTAINER_REGISTRY}/${CONTAINER_NAME}:${LATEST_REPO_TAG}
+        docker push ${CONTAINER_REGISTRY}/${CONTAINER_NAME}:${LATEST_REPO_TAG}
+
+        docker tag ${CONTAINER_REGISTRY}/${CONTAINER_NAME}:${GIT_SHA:0:7} ${CONTAINER_REGISTRY}/${CONTAINER_NAME}:latest
+        docker push ${CONTAINER_REGISTRY}/${CONTAINER_NAME}:${LATEST_REPO_TAG}
+
+    - name: Package and push helm chart
+      run: |
+        set -e
+
+        cd chart
+
+        CHART_PWD=$(pwd)
+
+        helm dep update ${CHART_NAME}
+        helm package -u ${CHART_NAME}
+
+        git clone https://x-access-token:${BOT_TOKEN}@github.com/${CHART_REPOSITORY}.git /tmp/repo
+        cd /tmp/repo
+        git checkout ${CHART_GIT_BRANCH}
+
+        mv ${CHART_PWD}/${CHART_NAME}-${CHART_VERSION}.tgz ./
+        helm repo index .
+
+        git config --global user.email "${BOT_EMAIL}"
+        git config --global user.name "${BOT_USERNAME}"
+        git add -A
+        git commit -m "Release ${CHART_NAME} ${CHART_VERSION}"
+        git push origin ${CHART_GIT_BRANCH}
+
+    - name: Create GH Release
+      uses: notlmn/release-with-changelog@v3
+      with:
+        token: ${{ secrets.BOT_TOKEN }}
+        template: '{commits}'

@@ -1,0 +1,93 @@
+name: main
+
+on:
+  push:
+    branches:
+      - master
+      - '**'
+
+env:
+  GIT_SHA: ${{ github.sha }}
+  GIT_REF: ${{ github.ref }}
+  CONTAINER_NAME: ovh-dns-updater
+  CHART_NAME: ovh-dns-updater
+  CHART_GIT_BRANCH: master
+  CHART_REPOSITORY: szymonrychu/charts
+  BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+  BOT_EMAIL: "szymon.rychu@gmail.com"
+  BOT_USERNAME: "szymonrychu"
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+  CONTAINER_REGISTRY: szymonrychu
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+    
+      - name: Parse versions in commit and setup debs
+        run: |
+          export LATEST_REPO_TAG=$(git tag -l --sort=-v:refname "[0-9]*" | head -n1)
+          if [ -z "${LATEST_REPO_TAG}" ]; then
+            export LATEST_REPO_TAG="0.0.1"
+          fi
+          export SHORT_SHA=$(echo ${GIT_SHA:0:7})
+
+          export APP_VERSION=${LATEST_REPO_TAG}-${SHORT_SHA}
+          export CHART_VERSION=${LATEST_REPO_TAG}-$(git show -s --format=%ct HEAD)-${SHORT_SHA}
+          export CONTAINER_VERSION=${GIT_SHA:0:7}
+
+          echo "APP_VERSION=${APP_VERSION}" >> $GITHUB_ENV
+          echo "CHART_VERSION=${CHART_VERSION}" >> $GITHUB_ENV
+          echo "CONTAINER_VERSION=${CONTAINER_VERSION}" >> $GITHUB_ENV
+          echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_ENV
+          echo "LATEST_REPO_TAG=${LATEST_REPO_TAG}" >> $GITHUB_ENV
+
+          sudo wget https://github.com/mikefarah/yq/releases/download/3.4.0/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+
+          curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+
+      - name: Update metadata files
+        run: |
+          set -e
+          cd chart
+          yq w -i ${CHART_NAME}/Chart.yaml version ${CHART_VERSION}
+          yq w -i ${CHART_NAME}/Chart.yaml appVersion ${CONTAINER_VERSION}
+
+      - name: Build, tag, and push panel image to DockerHub
+        run: |
+          set -e
+
+          echo "${DOCKERHUB_PASSWORD}" | docker login -u ${DOCKERHUB_USERNAME} --password-stdin
+          
+          cd docker
+          docker build -t ${CONTAINER_REGISTRY}/${CONTAINER_NAME}:${CONTAINER_VERSION} .
+          docker push ${CONTAINER_REGISTRY}/${CONTAINER_NAME}:${CONTAINER_VERSION}
+
+      - name: Package and push helm chart
+        run: |
+          set -e
+
+          cd chart
+
+          CHART_PWD=$(pwd)
+
+          helm dep update ${CHART_NAME}
+          helm package -u ${CHART_NAME}
+
+          git clone https://x-access-token:${BOT_TOKEN}@github.com/${CHART_REPOSITORY}.git /tmp/repo
+          cd /tmp/repo
+          git checkout ${CHART_GIT_BRANCH}
+
+          mv ${CHART_PWD}/${CHART_NAME}-${CHART_VERSION}.tgz ./
+          helm repo index .
+
+          git config --global user.email "${BOT_EMAIL}"
+          git config --global user.name "${BOT_USERNAME}"
+          git add -A
+          git commit -m "Add ${CHART_NAME} ${CHART_VERSION}"
+          git push origin ${CHART_GIT_BRANCH}
