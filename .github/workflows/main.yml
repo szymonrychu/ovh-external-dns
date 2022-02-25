@@ -64,7 +64,6 @@ jobs:
 
           echo "${DOCKERHUB_PASSWORD}" | docker login -u ${DOCKERHUB_USERNAME} --password-stdin
           
-          cd docker
           docker build -t ${CONTAINER_REGISTRY}/${CONTAINER_NAME}:${CONTAINER_VERSION} .
           docker push ${CONTAINER_REGISTRY}/${CONTAINER_NAME}:${CONTAINER_VERSION}
 

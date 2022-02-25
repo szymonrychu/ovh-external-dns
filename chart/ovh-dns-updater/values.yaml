@@ -5,10 +5,10 @@
 replicaCount: 1
 
 image:
-  repository: szymonrychu/ovh-dns-updater
+  repository: szymonrychu/ovh-external-dns
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "0.0.1-test22"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -17,12 +17,13 @@ fullnameOverride: ""
 
 ovh:
   endpoint: ovh-eu
-  domain: 
-  consumerKey:
-  applicationKey:
-  applicationSecret:
+  domain: ""
+  consumerKey: ""
+  applicationKey: ""
+  applicationSecret: ""
   ttl: 60
   sleepTime: 60
+
 
 serviceAccount:
   # Specifies whether a service account should be created

@@ -1,1 +1,0 @@
-# ovh-external-dns
