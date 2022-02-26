@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -61,13 +62,13 @@ type OVHManager struct {
 	OvhARecord    OVHRecord
 }
 
-func (ovhManager *OVHManager) GetRecordBySubDomain(subDomain string) OVHRecord {
+func (ovhManager *OVHManager) GetRecordBySubDomain(subDomain string) (OVHRecord, error) {
 	for _, record := range ovhManager.RemoteRecords {
 		if record.SubDomain == subDomain {
-			return record
+			return record, nil
 		}
 	}
-	return OVHRecord{}
+	return OVHRecord{}, errors.New("Record not found!")
 }
 
 func (ovhManager *OVHManager) Init(conf Config) error {

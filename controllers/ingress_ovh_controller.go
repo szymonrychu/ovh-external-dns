@@ -77,8 +77,8 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	mainARecord := manager.GetRecordBySubDomain("")
-	if mainARecord == (OVHRecord{}) {
+	mainARecord, err := manager.GetRecordBySubDomain("")
+	if err != nil {
 		l.Info("Adding 'A' record with new ip", "A", conf.OVHDNSDomain, "target", ip)
 		mainARecord.FieldType = "A"
 		mainARecord.SubDomain = ""
@@ -111,16 +111,14 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 			l.Info("Subdomain is empty, ommiting host!", "subdomain", subdomain, "host", host)
 			continue
 		}
-		record := manager.GetRecordBySubDomain(subdomain)
-		if record == (OVHRecord{}) && subdomain != "" {
+		record, err := manager.GetRecordBySubDomain(subdomain)
+		if err != nil {
 			l.Info("Adding missing 'CNAME' record with new target", "CNAME", subdomain, "target", conf.OVHDNSDomain+".")
 			record.InitWithConfig(subdomain, conf)
 			if addErr := record.AddRecord(manager); addErr != nil {
 				l.Error(addErr, "Couldn't add OVH record!")
 				return ctrl.Result{}, nil
 			}
-		} else if record.SubDomain == "" {
-			l.Info("Ignoring host/CNAME that would point to A record", "host", host)
 		} else if record.Target != conf.OVHDNSDomain+"." {
 			l.Info("Updaing 'CNAME' record with new target", "CNAME", subdomain+"."+conf.OVHDNSDomain, "target", conf.OVHDNSDomain+".")
 			record.InitWithConfig(subdomain, conf)
