@@ -1,13 +1,10 @@
 package controllers
 
 import (
-	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"time"
-
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type IP struct {
@@ -15,13 +12,10 @@ type IP struct {
 	lastCheckTimestamp time.Time
 }
 
-func (ip *IP) GetIP(ctx context.Context, ipTimeoutS int64) (string, error) {
-	l := log.FromContext(ctx)
+func (ip *IP) GetIP(ipTimeoutS int64) (string, error) {
 	now := time.Now()
 
 	if now.Unix()-ip.lastCheckTimestamp.Unix() > ipTimeoutS {
-		l.Info("Checking if IP have changed!", "TimePassed", ipTimeoutS)
-
 		ipClient := http.Client{
 			Timeout: time.Second * 10, // Timeout after 2 seconds
 		}

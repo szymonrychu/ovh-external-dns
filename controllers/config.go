@@ -4,7 +4,8 @@ import (
 	"context"
 
 	"github.com/kelseyhightower/envconfig"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Config struct {
@@ -23,8 +24,7 @@ func (conf *Config) Load(ctx context.Context) error {
 		if confErr != nil {
 			return confErr
 		}
-		l := log.FromContext(ctx)
-		l.Info("Loaded config", "OVH_ENDPOINT", conf.OVHApplicationEndpoint, "OVH_DNS_DOMAIN", conf.OVHDNSDomain)
+		log.Infof("Loaded config: {OVH_ENDPOINT:%s, OVH_DNS_DOMAIN:%s}", conf.OVHApplicationEndpoint, conf.OVHDNSDomain)
 	}
 	return nil
 }

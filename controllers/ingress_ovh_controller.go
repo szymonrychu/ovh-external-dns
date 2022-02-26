@@ -22,10 +22,10 @@ import (
 
 	v1networking "k8s.io/api/networking/v1"
 
+	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // OvhDomainReconciler reconciles a OvhDomain object
@@ -40,24 +40,22 @@ var conf Config
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch
 
 func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	l := log.FromContext(ctx)
-
 	ingressList := &v1networking.IngressList{}
 	getErr := r.List(ctx, ingressList)
 	if getErr != nil {
-		l.Error(getErr, "Error getting ingress!")
+		log.Errorf("Error getting ingress! %s", getErr)
 		return ctrl.Result{}, nil
 	}
 
 	confErr := conf.Load(ctx)
 	if confErr != nil {
-		l.Error(confErr, "Error loading config!")
+		log.Errorf("Error loading config! %s", confErr)
 		return ctrl.Result{}, nil
 	}
 
-	ip, ipErr := ipCache.GetIP(ctx, conf.OVHDNSTTL)
+	ip, ipErr := ipCache.GetIP(conf.OVHDNSTTL)
 	if ipErr != nil {
-		l.Error(ipErr, "Error getting IP address!!")
+		log.Errorf("Error getting IP address! %s", ipErr)
 		return ctrl.Result{}, nil
 	}
 
@@ -65,7 +63,6 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 	for _, ingress := range ingressList.Items {
 		for _, rule := range ingress.Spec.Rules {
 			host := rule.DeepCopy().Host
-			l.Info("Parsed host from ingress", "host", host)
 			hosts = append(hosts, host)
 		}
 	}
@@ -75,7 +72,7 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 
 	getRecordsErr := manager.LoadRemoteRecords(ctx)
 	if getRecordsErr != nil {
-		l.Error(getRecordsErr, "Couldn't get OVH records!")
+		log.Errorf("Couldn't get OVH records! %s", getRecordsErr)
 		return ctrl.Result{}, nil
 	}
 
@@ -84,27 +81,27 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 		if aRecord.SubDomain == "" {
 			aRecordFound = true
 			if aRecord.Target != ip {
-				l.Info("Updating 'A' record with new ip", "A", conf.OVHDNSDomain, "target", ip)
+				log.Infof("Updating A record '%s' with new ip '%s'", conf.OVHDNSDomain, ip)
 				aRecord.FieldType = "A"
 				aRecord.SubDomain = ""
 				aRecord.Target = ip
 				aRecord.Ttl = conf.OVHDNSTTL
 				if updErr := aRecord.UpdateRecord(manager); updErr != nil {
-					l.Error(updErr, "Couldn't update OVH record!")
+					log.Errorf("Couldn't update OVH record! %s", updErr)
 					return ctrl.Result{}, nil
 				}
 			}
 		}
 	}
 	if !aRecordFound {
-		l.Info("Adding 'A' record with new ip", "A", conf.OVHDNSDomain, "target", ip)
+		log.Infof("Adding A record '%s' with new ip '%s'", conf.OVHDNSDomain, ip)
 		mainARecord := OVHRecord{}
 		mainARecord.FieldType = "A"
 		mainARecord.SubDomain = ""
 		mainARecord.Target = ip
 		mainARecord.Ttl = conf.OVHDNSTTL
 		if updErr := mainARecord.AddRecord(manager); updErr != nil {
-			l.Error(updErr, "Couldn't add OVH record!")
+			log.Errorf("Couldn't add OVH record! %s", updErr)
 			return ctrl.Result{}, nil
 		}
 	}
@@ -112,22 +109,22 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 	for _, host := range hosts {
 		subdomain := strings.ReplaceAll(host, "."+conf.OVHDNSDomain, "")
 		if subdomain == conf.OVHDNSDomain {
-			l.Info("Ignoring", "host", host, "CNAME", subdomain, "target", conf.OVHDNSDomain+".")
+			log.Infof("Ignoring host/subdomain/target: %s/%s/%s", host, subdomain, conf.OVHDNSDomain+".")
 			continue
 		}
 		record, err := manager.GetRecordBySubDomain(subdomain)
 		if err != nil {
-			l.Info("Adding missing 'CNAME' record with new target", "CNAME", subdomain, "target", conf.OVHDNSDomain+".")
+			log.Infof("Adding missing CNAME subdomain record '%s' with new target '%s'", subdomain, conf.OVHDNSDomain+".")
 			record.InitWithConfig(subdomain, conf)
 			if addErr := record.AddRecord(manager); addErr != nil {
-				l.Error(addErr, "Couldn't add OVH record!", "CNAME", subdomain, "target", conf.OVHDNSDomain+".")
+				log.Errorf("Couldn't add OVH record! %s", addErr)
 				return ctrl.Result{}, nil
 			}
 		} else if record.Target != conf.OVHDNSDomain+"." {
-			l.Info("Updaing 'CNAME' record with new target", "CNAME", subdomain, "target", conf.OVHDNSDomain+".")
+			log.Infof("Updaing missing CNAME subdomain record '%s' with new target '%s'", subdomain, conf.OVHDNSDomain+".")
 			record.InitWithConfig(subdomain, conf)
 			if updErr := record.UpdateRecord(manager); updErr != nil {
-				l.Error(updErr, "Couldn't update OVH record!", "CNAME", subdomain, "target", conf.OVHDNSDomain+".")
+				log.Errorf("Couldn't update OVH record! %s", updErr)
 				return ctrl.Result{}, nil
 			}
 		}
@@ -142,9 +139,9 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 			}
 		}
 		if !domainStillNecessary {
-			l.Info("Deleting 'CNAME' record", "CNAME", record.SubDomain+"."+conf.OVHDNSDomain)
+			log.Infof("Deleting CNAME subdomain record '%s' with new target '%s'", record.SubDomain, conf.OVHDNSDomain+".")
 			if delErr := record.DeleteRecord(manager); delErr != nil {
-				l.Error(delErr, "Couldn't delete OVH record!")
+				log.Errorf("Couldn't delete OVH record! %s", delErr)
 				return ctrl.Result{}, nil
 			}
 		}
