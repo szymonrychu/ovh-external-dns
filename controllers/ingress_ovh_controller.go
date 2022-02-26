@@ -77,9 +77,27 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	mainARecord, err := manager.GetRecordBySubDomain("")
-	if err != nil {
+	aRecords := manager.GetARecords()
+	aRecordFound := false
+	for _, aRecord := range aRecords {
+		if aRecord.SubDomain == "" {
+			aRecordFound = true
+			if aRecord.Target != ip {
+				l.Info("Updating 'A' record with new ip", "A", conf.OVHDNSDomain, "target", ip)
+				aRecord.FieldType = "A"
+				aRecord.SubDomain = ""
+				aRecord.Target = ip
+				aRecord.Ttl = conf.OVHDNSTTL
+				if updErr := aRecord.UpdateRecord(manager); updErr != nil {
+					l.Error(updErr, "Couldn't update OVH record!")
+					return ctrl.Result{}, nil
+				}
+			}
+		}
+	}
+	if !aRecordFound {
 		l.Info("Adding 'A' record with new ip", "A", conf.OVHDNSDomain, "target", ip)
+		mainARecord := OVHRecord{}
 		mainARecord.FieldType = "A"
 		mainARecord.SubDomain = ""
 		mainARecord.Target = ip
@@ -88,17 +106,6 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 			l.Error(updErr, "Couldn't add OVH record!")
 			return ctrl.Result{}, nil
 		}
-	} else if mainARecord.Target != ip {
-		l.Info("Updating 'A' record with new ip", "A", conf.OVHDNSDomain, "target", ip)
-		mainARecord.FieldType = "A"
-		mainARecord.SubDomain = ""
-		mainARecord.Target = ip
-		mainARecord.Ttl = conf.OVHDNSTTL
-		if updErr := mainARecord.UpdateRecord(manager); updErr != nil {
-			l.Error(updErr, "Couldn't update OVH record!")
-			return ctrl.Result{}, nil
-		}
-
 	}
 
 	for _, host := range hosts {

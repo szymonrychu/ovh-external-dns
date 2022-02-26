@@ -68,7 +68,17 @@ func (ovhManager *OVHManager) GetRecordBySubDomain(subDomain string) (OVHRecord,
 			return record, nil
 		}
 	}
-	return OVHRecord{}, errors.New("Record not found!")
+	return OVHRecord{}, errors.New("record not found")
+}
+
+func (ovhManager *OVHManager) GetARecords() []OVHRecord {
+	aRecords := []OVHRecord{}
+	for _, record := range ovhManager.RemoteRecords {
+		if record.FieldType == "A" {
+			aRecords = append(aRecords, record)
+		}
+	}
+	return aRecords
 }
 
 func (ovhManager *OVHManager) Init(conf Config) error {
