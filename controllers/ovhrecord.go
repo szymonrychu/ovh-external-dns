@@ -21,7 +21,20 @@ type OVHRecord struct {
 func (record *OVHRecord) AddRecord(manager OVHManager) error {
 	client := manager.GetOVHClient()
 	recordIdUrl := fmt.Sprintf("/domain/zone/%s/record", manager.GetZone())
-	if err := (*client).Post(recordIdUrl, record, nil); err != nil {
+	type AddOVHRecord struct {
+		Ttl       int64  `json:"ttl"`
+		SubDomain string `json:"subDomain"`
+		Target    string `json:"target"`
+		FieldType string `json:"fieldType"`
+		Zone      string `json:"zone"`
+	}
+	addRecord := AddOVHRecord{}
+	addRecord.Ttl = record.Ttl
+	addRecord.SubDomain = record.SubDomain
+	addRecord.Target = record.Target
+	addRecord.FieldType = record.FieldType
+	addRecord.Zone = record.Zone
+	if err := (*client).Post(recordIdUrl, addRecord, nil); err != nil {
 		return err
 	}
 	return nil
@@ -50,6 +63,7 @@ func (record *OVHRecord) InitWithConfig(subdomain string, conf Config) {
 	record.SubDomain = subdomain
 	record.Target = conf.OVHDNSDomain + "."
 	record.Ttl = conf.OVHDNSTTL
+	record.Zone = conf.OVHDNSDomain
 }
 func (r1 *OVHRecord) Compare(r2 OVHRecord) bool {
 	return r1.FieldType == r2.FieldType && r1.SubDomain == r2.SubDomain && r1.Target == r2.Target && r1.Zone == r2.Zone && r1.Ttl == r2.Ttl
