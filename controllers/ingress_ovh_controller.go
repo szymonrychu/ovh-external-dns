@@ -111,6 +111,7 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 		subdomain := strings.ReplaceAll(host, "."+conf.OVHDNSDomain, "")
 		if subdomain == conf.OVHDNSDomain {
 			l.Info("Ignoring", "host", host, "CNAME", subdomain, "target", conf.OVHDNSDomain+".")
+			continue
 		}
 		record, err := manager.GetRecordBySubDomain(subdomain)
 		if err != nil {
