@@ -114,14 +114,14 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 			l.Info("Adding missing 'CNAME' record with new target", "CNAME", subdomain, "target", conf.OVHDNSDomain+".")
 			record.InitWithConfig(subdomain, conf)
 			if addErr := record.AddRecord(manager); addErr != nil {
-				l.Error(addErr, "Couldn't add OVH record!")
+				l.Error(addErr, "Couldn't add OVH record!", "CNAME", subdomain, "target", conf.OVHDNSDomain+".")
 				return ctrl.Result{}, nil
 			}
 		} else if record.Target != conf.OVHDNSDomain+"." {
-			l.Info("Updaing 'CNAME' record with new target", "CNAME", subdomain+"."+conf.OVHDNSDomain, "target", conf.OVHDNSDomain+".")
+			l.Info("Updaing 'CNAME' record with new target", "CNAME", subdomain, "target", conf.OVHDNSDomain+".")
 			record.InitWithConfig(subdomain, conf)
 			if updErr := record.UpdateRecord(manager); updErr != nil {
-				l.Error(updErr, "Couldn't update OVH record!")
+				l.Error(updErr, "Couldn't update OVH record!", "CNAME", subdomain, "target", conf.OVHDNSDomain+".")
 				return ctrl.Result{}, nil
 			}
 		}

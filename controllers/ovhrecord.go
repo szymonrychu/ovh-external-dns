@@ -20,7 +20,7 @@ type OVHRecord struct {
 
 func (record *OVHRecord) AddRecord(manager OVHManager) error {
 	client := manager.GetOVHClient()
-	recordIdUrl := fmt.Sprintf("/domain/zone/%s/record/%d", manager.GetZone(), record.Id)
+	recordIdUrl := fmt.Sprintf("/domain/zone/%s/record", manager.GetZone())
 	if err := (*client).Post(recordIdUrl, record, nil); err != nil {
 		return err
 	}
