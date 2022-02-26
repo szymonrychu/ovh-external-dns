@@ -56,29 +56,19 @@ func (r1 *OVHRecord) Compare(r2 OVHRecord) bool {
 }
 
 type OVHManager struct {
-	RemoteRecords []OVHRecord
-	ovhClient     *ovh.Client
-	config        Config
-	OvhARecord    OVHRecord
+	RemoteCNAMERecords []OVHRecord
+	RemoteARecords     []OVHRecord
+	ovhClient          *ovh.Client
+	config             Config
 }
 
 func (ovhManager *OVHManager) GetRecordBySubDomain(subDomain string) (OVHRecord, error) {
-	for _, record := range ovhManager.RemoteRecords {
+	for _, record := range ovhManager.RemoteCNAMERecords {
 		if record.SubDomain == subDomain {
 			return record, nil
 		}
 	}
 	return OVHRecord{}, errors.New("record not found")
-}
-
-func (ovhManager *OVHManager) GetARecords() []OVHRecord {
-	aRecords := []OVHRecord{}
-	for _, record := range ovhManager.RemoteRecords {
-		if record.FieldType == "A" {
-			aRecords = append(aRecords, record)
-		}
-	}
-	return aRecords
 }
 
 func (ovhManager *OVHManager) Init(conf Config) error {
@@ -120,10 +110,10 @@ func (ovhManager *OVHManager) LoadRemoteRecords(ctx context.Context) error {
 		if recordErr := ovhManager.GetOVHClient().Get(recordIdUrl, &ovhRecord); recordErr != nil {
 			return recordErr
 		}
-		if ovhRecord.FieldType == "A" && ovhRecord.SubDomain == "" {
-			ovhManager.OvhARecord = ovhRecord
+		if ovhRecord.FieldType == "A" {
+			ovhManager.RemoteARecords = append(ovhManager.RemoteARecords, ovhRecord)
 		} else if ovhRecord.FieldType == "CNAME" {
-			ovhManager.RemoteRecords = append(ovhManager.RemoteRecords, ovhRecord)
+			ovhManager.RemoteCNAMERecords = append(ovhManager.RemoteCNAMERecords, ovhRecord)
 		}
 	}
 

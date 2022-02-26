@@ -77,9 +77,8 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	aRecords := manager.GetARecords()
 	aRecordFound := false
-	for _, aRecord := range aRecords {
+	for _, aRecord := range manager.RemoteARecords {
 		if aRecord.SubDomain == "" {
 			aRecordFound = true
 			if aRecord.Target != ip {
@@ -135,7 +134,7 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 			}
 		}
 	}
-	for _, record := range manager.RemoteRecords {
+	for _, record := range manager.RemoteCNAMERecords {
 		domain := record.SubDomain + "." + conf.OVHDNSDomain
 		domainStillNecessary := false
 		for _, host := range hosts {
