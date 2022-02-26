@@ -109,14 +109,6 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 
 	for _, host := range hosts {
 		subdomain := strings.ReplaceAll(host, "."+conf.OVHDNSDomain, "")
-		if subdomain == host {
-			l.Info("Subdomain equals host, ommiting host!", "subdomain", subdomain, "host", host)
-			continue
-		}
-		if subdomain != "" {
-			l.Info("Subdomain is empty, ommiting host!", "subdomain", subdomain, "host", host)
-			continue
-		}
 		record, err := manager.GetRecordBySubDomain(subdomain)
 		if err != nil {
 			l.Info("Adding missing 'CNAME' record with new target", "CNAME", subdomain, "target", conf.OVHDNSDomain+".")
