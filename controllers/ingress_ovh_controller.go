@@ -41,11 +41,6 @@ var conf Config
 
 func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	ingressList := &v1networking.IngressList{}
-	getErr := r.List(ctx, ingressList)
-	if getErr != nil {
-		log.Errorf("Error getting ingress! %s", getErr)
-		return ctrl.Result{}, nil
-	}
 
 	confErr := conf.Load(ctx)
 	if confErr != nil {
@@ -57,14 +52,6 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 	if ipErr != nil {
 		log.Errorf("Error getting IP address! %s", ipErr)
 		return ctrl.Result{}, nil
-	}
-
-	hosts := []string{}
-	for _, ingress := range ingressList.Items {
-		for _, rule := range ingress.Spec.Rules {
-			host := rule.DeepCopy().Host
-			hosts = append(hosts, host)
-		}
 	}
 
 	manager := OVHManager{}
@@ -106,34 +93,45 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	for _, host := range hosts {
-		subdomain := strings.ReplaceAll(host, "."+conf.OVHDNSDomain, "")
-		if subdomain == conf.OVHDNSDomain {
-			log.Infof("Ignoring host/subdomain/target: %s/%s/%s", host, subdomain, conf.OVHDNSDomain+".")
-			continue
-		}
-		record, err := manager.GetRecordBySubDomain(subdomain)
-		if err != nil {
-			log.Infof("Adding missing CNAME subdomain record '%s' with new target '%s'", subdomain, conf.OVHDNSDomain+".")
-			record.InitWithConfig(subdomain, conf)
-			if addErr := record.AddRecord(manager); addErr != nil {
-				log.Errorf("Couldn't add OVH record! %s", addErr)
-				return ctrl.Result{}, nil
+	getErr := r.List(ctx, ingressList)
+	if getErr != nil {
+		log.Errorf("Error getting ingress! %s", getErr)
+		return ctrl.Result{}, nil
+	}
+
+	hosts := []string{}
+	for _, ingress := range ingressList.Items {
+		for _, rule := range ingress.Spec.Rules {
+			host := rule.DeepCopy().Host
+			hosts = append(hosts, host)
+			subdomain := strings.ReplaceAll(host, "."+conf.OVHDNSDomain, "")
+			if subdomain == conf.OVHDNSDomain {
+				log.Infof("Ignoring name/namespace/host/subdomain/target: %s/%s/%s/%s/%s", ingress.Name, ingress.Namespace, host, subdomain, conf.OVHDNSDomain+".")
+				continue
 			}
-		} else if record.Target != conf.OVHDNSDomain+"." {
-			log.Infof("Updaing missing CNAME subdomain record '%s' with new target '%s'", subdomain, conf.OVHDNSDomain+".")
-			record.InitWithConfig(subdomain, conf)
-			if updErr := record.UpdateRecord(manager); updErr != nil {
-				log.Errorf("Couldn't update OVH record! %s", updErr)
-				return ctrl.Result{}, nil
+			record, err := manager.GetRecordBySubDomain(subdomain)
+			if err != nil {
+				log.Infof("Adding missing CNAME subdomain record '%s' with new target '%s' for name/namespace %s/%s", ingress.Name, ingress.Namespace, subdomain, conf.OVHDNSDomain+".")
+				record.InitWithConfig(subdomain, conf)
+				if addErr := record.AddRecord(manager); addErr != nil {
+					log.Errorf("Couldn't add OVH record! %s", addErr)
+					return ctrl.Result{}, nil
+				}
+			} else if record.Target != conf.OVHDNSDomain+"." {
+				log.Infof("Updaing missing CNAME subdomain record '%s' with new target '%s' for name/namespace %s/%s", ingress.Name, ingress.Namespace, subdomain, conf.OVHDNSDomain+".")
+				record.InitWithConfig(subdomain, conf)
+				if updErr := record.UpdateRecord(manager); updErr != nil {
+					log.Errorf("Couldn't update OVH record! %s", updErr)
+					return ctrl.Result{}, nil
+				}
 			}
 		}
 	}
 	for _, record := range manager.RemoteCNAMERecords {
-		domain := record.SubDomain + "." + conf.OVHDNSDomain
+		domain := record.SubDomain + "." + record.Target
 		domainStillNecessary := false
 		for _, host := range hosts {
-			if host == domain {
+			if host+"." == domain {
 				domainStillNecessary = true
 				break
 			}
