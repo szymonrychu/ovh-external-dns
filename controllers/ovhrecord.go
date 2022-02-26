@@ -15,26 +15,23 @@ type OVHRecord struct {
 	SubDomain string `json:"subDomain"`
 	Target    string `json:"target"`
 	FieldType string `json:"fieldType"`
-	Zone      string `json:"zone"`
 }
 
 func (record *OVHRecord) AddRecord(manager OVHManager) error {
 	client := manager.GetOVHClient()
 	recordIdUrl := fmt.Sprintf("/domain/zone/%s/record", manager.GetZone())
-	type AddOVHRecord struct {
+	type TMPOVHRecord struct {
 		Ttl       int64  `json:"ttl"`
 		SubDomain string `json:"subDomain"`
 		Target    string `json:"target"`
 		FieldType string `json:"fieldType"`
-		Zone      string `json:"zone"`
 	}
-	addRecord := AddOVHRecord{}
-	addRecord.Ttl = record.Ttl
-	addRecord.SubDomain = record.SubDomain
-	addRecord.Target = record.Target
-	addRecord.FieldType = record.FieldType
-	addRecord.Zone = record.Zone
-	if err := (*client).Post(recordIdUrl, addRecord, nil); err != nil {
+	tmpRecord := TMPOVHRecord{}
+	tmpRecord.Ttl = record.Ttl
+	tmpRecord.SubDomain = record.SubDomain
+	tmpRecord.Target = record.Target
+	tmpRecord.FieldType = record.FieldType
+	if err := (*client).Post(recordIdUrl, tmpRecord, nil); err != nil {
 		return err
 	}
 	return nil
@@ -43,7 +40,18 @@ func (record *OVHRecord) AddRecord(manager OVHManager) error {
 func (record *OVHRecord) UpdateRecord(manager OVHManager) error {
 	client := manager.GetOVHClient()
 	recordIdUrl := fmt.Sprintf("/domain/zone/%s/record/%d", manager.GetZone(), record.Id)
-	if err := (*client).Put(recordIdUrl, record, nil); err != nil {
+	type TMPOVHRecord struct {
+		Ttl       int64  `json:"ttl"`
+		SubDomain string `json:"subDomain"`
+		Target    string `json:"target"`
+		FieldType string `json:"fieldType"`
+	}
+	tmpRecord := TMPOVHRecord{}
+	tmpRecord.Ttl = record.Ttl
+	tmpRecord.SubDomain = record.SubDomain
+	tmpRecord.Target = record.Target
+	tmpRecord.FieldType = record.FieldType
+	if err := (*client).Put(recordIdUrl, tmpRecord, nil); err != nil {
 		return err
 	}
 	return nil
@@ -63,10 +71,9 @@ func (record *OVHRecord) InitWithConfig(subdomain string, conf Config) {
 	record.SubDomain = subdomain
 	record.Target = conf.OVHDNSDomain + "."
 	record.Ttl = conf.OVHDNSTTL
-	record.Zone = conf.OVHDNSDomain
 }
 func (r1 *OVHRecord) Compare(r2 OVHRecord) bool {
-	return r1.FieldType == r2.FieldType && r1.SubDomain == r2.SubDomain && r1.Target == r2.Target && r1.Zone == r2.Zone && r1.Ttl == r2.Ttl
+	return r1.FieldType == r2.FieldType && r1.SubDomain == r2.SubDomain && r1.Target == r2.Target && r1.Ttl == r2.Ttl
 }
 
 type OVHManager struct {
