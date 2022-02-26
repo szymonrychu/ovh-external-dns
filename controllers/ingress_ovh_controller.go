@@ -64,7 +64,9 @@ func (r *IngressOVHReconciller) Reconcile(ctx context.Context, req ctrl.Request)
 	hosts := []string{}
 	for _, ingress := range ingressList.Items {
 		for _, rule := range ingress.Spec.Rules {
-			hosts = append(hosts, rule.DeepCopy().Host)
+			host := rule.DeepCopy().Host
+			l.Info("Parsed host from ingress", "host", host)
+			hosts = append(hosts, host)
 		}
 	}
 
