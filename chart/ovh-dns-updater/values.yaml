@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: szymonrychu/ovh-external-dns
+  repository: szymonrychu/ovh-dns-updater
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
